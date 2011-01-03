@@ -1,0 +1,28 @@
+rotmus, itays04
+===============================================================================
+Rotem Barzilay, ID 300618592, rotmus@cs.huji.ac.il
+Itay Sabato, ID 036910008, itays04@cs.huji.ac.il
+===============================================================================
+
+                           Project 10 - Syntex Analyzer
+                          ----------------------------------
+  
+
+Submitted Files
+--------------------------
+README - This file.
+Makefile - For compiling the project.
+JackAnalyzer - The executable script for running the Jack Analyzer.
+JackAnalyzer.java - The main class.
+TokenType.java - enum for token types.
+Keyword.java - enum for keywords.
+MyReader.java - Handles String processing and comments.
+JackTokenizer.java - Parses the input from MyReader into tokens.
+CompilationEngine.java - Compiles the tokens into xml.
+
+Comments
+---------------
+None.
+
+
+
