@@ -9,5 +9,7 @@ public enum VarKind {
     STATIC,
     FIELD,
     ARG,
-    VAR
+    VAR;
+
+    String segment;
 }
