@@ -27,6 +27,7 @@ public class CompilationEngine {
     private SymbolTable symbolTable;
     private String className  = null;
     private String functionName  = null;
+    private Keyword functionType = null;
     private int whileCounter = 0;
     private int ifCounter = 0;
 
@@ -73,16 +74,7 @@ public class CompilationEngine {
 
         writer.write("<subroutineDec>\n");
         writer.write(TokenType.KEYWORD.wrap(keyword)+"\n");
-        
-        if(keyword.equals(Keyword.METHOD)){
-            writer.writePush(VMWriter.ARG,0);
-            writer.writePop(VMWriter.POINT,0);
-        }
-        else if(keyword.equals(Keyword.CONSTRUCTOR)){
-            writer.writePush(VMWriter.CONST,symbolTable.varCount(VarKind.FIELD));
-            writer.writeCall("Memory.alloc", 1);
-            writer.writePop(VMWriter.POINT,0);
-        }
+        functionType = keyword;
 
         while(tokenizer.advance()){
             TokenType type = tokenizer.tokenType();
@@ -121,13 +113,13 @@ public class CompilationEngine {
                     compileVarDec();
                 }
                 else {
-                    writer.writeFunction(className+"."+functionName, symbolTable.varCount(VarKind.VAR));
+                    functionStart();
                     compileStatements(keyword);
                     break;
                 }
             }
             else {
-                writer.writeFunction(className+"."+functionName, symbolTable.varCount(VarKind.VAR));
+                functionStart();
                 compileStatements(null);
                 break;
             }
@@ -135,6 +127,20 @@ public class CompilationEngine {
 
         writer.write(TokenType.SYMBOL.wrap("}")+"\n");
         writer.write("</subroutineBody>\n");
+    }
+
+    private void functionStart() throws IOException {
+        writer.writeFunction(className+"."+functionName, symbolTable.varCount(VarKind.VAR));
+
+        if(functionType.equals(Keyword.METHOD)){
+            writer.writePush(VMWriter.ARG,0);
+            writer.writePop(VMWriter.POINT,0);
+        }
+        else if(functionType.equals(Keyword.CONSTRUCTOR)){
+            writer.writePush(VMWriter.CONST,symbolTable.varCount(VarKind.FIELD));
+            writer.writeCall("Memory.alloc", 1);
+            writer.writePop(VMWriter.POINT,0);
+        }
     }
 
     private void compileParameterList() throws IOException {
@@ -341,6 +347,11 @@ public class CompilationEngine {
 
                 if(type.equals(TokenType.SYMBOL)){
                     if(token.equals("(")){
+                        if(!functionCallName.contains(".")){
+                            functionCallName = className+"."+functionCallName;
+                            writer.writePush(VMWriter.POINT,0);
+                            numArguments++;
+                        }
                         numArguments += compileExpressionList();
                         writer.write(TokenType.SYMBOL.wrap(")")+"\n");
                     }
@@ -544,6 +555,11 @@ public class CompilationEngine {
 
                             if(functionCallName != null){
                                 functionCallName = functionCallName+"."+identifier;
+                            }
+                            else {
+                                functionCallName = className+"."+identifier;
+                                writer.writePush(VMWriter.POINT,0);
+                                numArguments++;
                             }
                             writer.writeCall(functionCallName, numArguments);
                             functionCallName = null;
