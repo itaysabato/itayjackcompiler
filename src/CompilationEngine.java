@@ -20,8 +20,6 @@ public class CompilationEngine {
         opMap.put("&lt;",VMWriter.LT);
         opMap.put("&gt;",VMWriter.GT);
         opMap.put("=",VMWriter.EQ);
-        opMap.put("-",VMWriter.NEG);
-        opMap.put("~",VMWriter.NOT);
     }
 
     private JackTokenizer tokenizer;
@@ -30,7 +28,7 @@ public class CompilationEngine {
     private String className  = null;
     private String functionName  = null;
     private int whileCounter = 0;
-    private int ifCounter = 0;    
+    private int ifCounter = 0;
 
     public CompilationEngine(JackTokenizer tokenizer, Writer writer) {
         this.tokenizer = tokenizer;
@@ -259,6 +257,7 @@ public class CompilationEngine {
     }
 
     private void compileWhile() throws IOException {
+        int myWhileCounter = whileCounter++;
         writer.write("<whileStatement>\n");
         writer.write(TokenType.KEYWORD.wrap(Keyword.WHILE)+"\n");
         String closer;
@@ -270,7 +269,7 @@ public class CompilationEngine {
             token = tokenizer.token();
             if(token.equals("(") ){
                 writer.write(type.wrap(token)+"\n");
-                writer.writeLabel("WHILE_EXP"+whileCounter);
+                writer.writeLabel("WHILE_EXP"+myWhileCounter);
                 closer = compileExpression(null,null);
                 writer.write(type.wrap(closer)+"\n");
             }
@@ -280,7 +279,7 @@ public class CompilationEngine {
                 if(tokenizer.advance()){
                     type = tokenizer.tokenType();
                     writer.writeArithmetic(VMWriter.NOT);
-                    writer.writeIfGoTo("WHILE_END"+whileCounter);
+                    writer.writeIfGoTo("WHILE_END"+myWhileCounter);
                     if(type.equals(TokenType.KEYWORD)){
                         compileStatements(tokenizer.keyword());
                     }
@@ -288,13 +287,13 @@ public class CompilationEngine {
                         token = tokenizer.token();
                         compileStatements(null);
                     }
-                    writer.writeLabel("WHILE_END"+whileCounter);
+                    writer.writeGoTo("WHILE_EXP"+myWhileCounter);
+                    writer.writeLabel("WHILE_END"+myWhileCounter);
                     writer.write(TokenType.SYMBOL.wrap("}")+"\n");
                     break;
                 }
             }
         }
-        whileCounter++;
         writer.write("</whileStatement>\n");
     }
 
@@ -356,6 +355,7 @@ public class CompilationEngine {
                 while(symbol.equals(",")){
                     writer.write(TokenType.SYMBOL.wrap(symbol)+"\n");
                     symbol = compileExpression(null, null);
+                    numArguments++;
                 }
             }
         }
@@ -364,6 +364,7 @@ public class CompilationEngine {
     }
 
     private String compileIf() throws IOException {
+        int myIfCounter = ifCounter++;
         writer.write("<ifStatement>\n");
         writer.write(TokenType.KEYWORD.wrap(Keyword.IF)+"\n");
         String closer;
@@ -377,11 +378,11 @@ public class CompilationEngine {
                 writer.write(type.wrap(token)+"\n");
                 closer = compileExpression(null,null);
                 writer.write(type.wrap(closer)+"\n");
-                writer.writeIfGoTo("IF_TRUE"+ifCounter);
-                writer.writeGoTo("IF_FALSE"+ifCounter);
+                writer.writeIfGoTo("IF_TRUE"+myIfCounter);
+                writer.writeGoTo("IF_FALSE"+myIfCounter);
             }
             if(token.equals("{")){
-                writer.writeLabel("IF_TRUE"+ifCounter);
+                writer.writeLabel("IF_TRUE"+myIfCounter);
                 writer.write(type.wrap(token)+"\n");
 
                 if(tokenizer.advance()){
@@ -403,8 +404,8 @@ public class CompilationEngine {
             type = tokenizer.tokenType();
             token = tokenizer.token();
             if(token.equals(Keyword.ELSE.tag)){
-                writer.writeGoTo("IF_END"+ifCounter);
-                writer.writeLabel("IF_FALSE"+ifCounter);
+                writer.writeGoTo("IF_END"+myIfCounter);
+                writer.writeLabel("IF_FALSE"+myIfCounter);
                 writer.write(TokenType.KEYWORD.wrap(Keyword.ELSE)+"\n");
                 while(tokenizer.advance()) {
                     type = tokenizer.tokenType();
@@ -421,7 +422,7 @@ public class CompilationEngine {
                                 token = tokenizer.token();
                                 compileStatements(null);
                             }
-                            writer.writeLabel("IF_END"+ifCounter);
+                            writer.writeLabel("IF_END"+myIfCounter);
                             writer.write(TokenType.SYMBOL.wrap("}")+"\n");
                             break;
                         }
@@ -429,13 +430,11 @@ public class CompilationEngine {
                 }
             }
             else {
-                writer.writeLabel("IF_FALSE"+ifCounter);
-                ifCounter++;
+                writer.writeLabel("IF_FALSE"+myIfCounter);
                 writer.write("</ifStatement>\n");
                 return token;
             }
         }
-        ifCounter++;
         writer.write("</ifStatement>\n");
         return null;
     }
@@ -505,6 +504,7 @@ public class CompilationEngine {
     }
 
     private String compileTerm(TokenType type, String token) throws IOException {
+        String functionCallName = null;
         writer.write("<term>\n");
         do {
             if(type.equals(TokenType.IDENTIFIER)){
@@ -524,8 +524,14 @@ public class CompilationEngine {
                         else if(token.equals("(")){
                             writer.write(TokenType.IDENTIFIER.wrap(identifier)+"\n");
                             writer.write(type.wrap(token)+"\n");
-                            compileExpressionList();
+                            int numArguments = compileExpressionList();
                             writer.write(TokenType.SYMBOL.wrap(")")+"\n");
+
+                            if(functionCallName != null){
+                                functionCallName = functionCallName+"."+identifier;
+                            }
+                            writer.writeCall(functionCallName, numArguments);
+                            functionCallName = null;
                             token = null;
                             break;
                         }
@@ -535,6 +541,7 @@ public class CompilationEngine {
                                 writer.write(TokenType.IDENTIFIER.wrap("term object method call usage: "+variable)+"\n");
                             }
                             else {
+                                functionCallName = identifier;
                                 writer.write(TokenType.IDENTIFIER.wrap(identifier)+"\n");
                             }
 
@@ -556,10 +563,21 @@ public class CompilationEngine {
             else {
                 writer.write(type.wrap(token)+"\n");
 
-                if(type.equals(TokenType.INT_CONST)){
+                if(type.equals(TokenType.KEYWORD)){
+                    Keyword keyword  = tokenizer.keyword();
+                    if(keyword.equals(Keyword.THIS)){
+                        writer.writePush(VMWriter.POINT, 0);
+                    }
+                    else {
+                        writer.writePush(VMWriter.CONST, 0);
+                        if(keyword.equals(Keyword.TRUE)){
+                            writer.writeArithmetic(VMWriter.NOT);
+                        }
+                    }
+                }
+                else if(type.equals(TokenType.INT_CONST)){
                     writer.writePush(VMWriter.CONST,Integer.parseInt(token));
                 }
-
                 if(type.equals(TokenType.SYMBOL)){
                     if(token.equals("(")){
                         compileExpression(null,null);
@@ -568,10 +586,12 @@ public class CompilationEngine {
                         break;
                     }
                     else if(token.equals("-") || token.equals("~")){
+                        String op = token.equals("-") ? VMWriter.NEG : VMWriter.NOT;
                         if(tokenizer.advance()) {
                             type = tokenizer.tokenType();
                             token = tokenizer.token();
                             token = compileTerm(type, token);
+                            writer.writeArithmetic(op);
                             break;
                         }
                     }

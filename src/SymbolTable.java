@@ -1,3 +1,4 @@
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,6 +35,7 @@ public class SymbolTable {
 
     public void startSubroutine() {
         localMap.clear();
+        indexCounters[VarKind.VAR.ordinal()] = indexCounters[VarKind.ARG.ordinal()] = 0;
     }
 
     public void define(String name, String type, VarKind kind) {
