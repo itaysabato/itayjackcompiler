@@ -6,10 +6,14 @@
  * Time: 19:40:00 <br/>
  */
 public enum VarKind {
-    STATIC,
-    FIELD,
-    ARG,
-    VAR;
+    STATIC(VMWriter.STATIC),
+    FIELD(VMWriter.THIS),
+    ARG(VMWriter.ARG),
+    VAR(VMWriter.LCL);
 
     String segment;
+
+    VarKind(String segment) {
+        this.segment = segment;
+    }
 }
