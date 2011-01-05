@@ -536,7 +536,9 @@ public class CompilationEngine {
                             }
                         }
                         else {
-                            writer.write(TokenType.IDENTIFIER.wrap("term plain usage: "+symbolTable.findVariable(identifier))+"\n");
+                            SymbolTable.Variable variable = symbolTable.findVariable(identifier);
+                            writer.write(TokenType.IDENTIFIER.wrap("term plain usage: "+variable)+"\n");
+                            writer.writePush(variable.kind.segment, variable.index);
                             break;
                         }
                     }
