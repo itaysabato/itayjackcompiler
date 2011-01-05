@@ -377,8 +377,11 @@ public class CompilationEngine {
                 writer.write(type.wrap(token)+"\n");
                 closer = compileExpression(null,null);
                 writer.write(type.wrap(closer)+"\n");
+                writer.writeIfGoTo("IF_TRUE"+ifCounter);
+                writer.writeGoTo("IF_FALSE"+ifCounter);
             }
             if(token.equals("{")){
+                writer.writeLabel("IF_TRUE"+ifCounter);
                 writer.write(type.wrap(token)+"\n");
 
                 if(tokenizer.advance()){
@@ -400,6 +403,8 @@ public class CompilationEngine {
             type = tokenizer.tokenType();
             token = tokenizer.token();
             if(token.equals(Keyword.ELSE.tag)){
+                writer.writeGoTo("IF_END"+ifCounter);
+                writer.writeLabel("IF_FALSE"+ifCounter);
                 writer.write(TokenType.KEYWORD.wrap(Keyword.ELSE)+"\n");
                 while(tokenizer.advance()) {
                     type = tokenizer.tokenType();
@@ -416,6 +421,7 @@ public class CompilationEngine {
                                 token = tokenizer.token();
                                 compileStatements(null);
                             }
+                            writer.writeLabel("IF_END"+ifCounter);
                             writer.write(TokenType.SYMBOL.wrap("}")+"\n");
                             break;
                         }
@@ -423,10 +429,13 @@ public class CompilationEngine {
                 }
             }
             else {
+                writer.writeLabel("IF_FALSE"+ifCounter);
+                ifCounter++;
                 writer.write("</ifStatement>\n");
                 return token;
             }
         }
+        ifCounter++;
         writer.write("</ifStatement>\n");
         return null;
     }
