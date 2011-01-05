@@ -73,6 +73,16 @@ public class CompilationEngine {
 
         writer.write("<subroutineDec>\n");
         writer.write(TokenType.KEYWORD.wrap(keyword)+"\n");
+        
+        if(keyword.equals(Keyword.METHOD)){
+            writer.writePush(VMWriter.ARG,0);
+            writer.writePop(VMWriter.POINT,0);
+        }
+        else if(keyword.equals(Keyword.CONSTRUCTOR)){
+            writer.writePush(VMWriter.CONST,symbolTable.varCount(VarKind.FIELD));
+            writer.writeCall("Memory.alloc", 1);
+            writer.writePop(VMWriter.POINT,0);
+        }
 
         while(tokenizer.advance()){
             TokenType type = tokenizer.tokenType();
