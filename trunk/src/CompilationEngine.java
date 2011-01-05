@@ -270,6 +270,7 @@ public class CompilationEngine {
             token = tokenizer.token();
             if(token.equals("(") ){
                 writer.write(type.wrap(token)+"\n");
+                writer.writeLabel("WHILE_EXP"+whileCounter);
                 closer = compileExpression(null,null);
                 writer.write(type.wrap(closer)+"\n");
             }
@@ -278,6 +279,8 @@ public class CompilationEngine {
 
                 if(tokenizer.advance()){
                     type = tokenizer.tokenType();
+                    writer.writeArithmetic(VMWriter.NOT);
+                    writer.writeIfGoTo("WHILE_END"+whileCounter);
                     if(type.equals(TokenType.KEYWORD)){
                         compileStatements(tokenizer.keyword());
                     }
@@ -285,11 +288,13 @@ public class CompilationEngine {
                         token = tokenizer.token();
                         compileStatements(null);
                     }
+                    writer.writeLabel("WHILE_END"+whileCounter);
                     writer.write(TokenType.SYMBOL.wrap("}")+"\n");
                     break;
                 }
             }
         }
+        whileCounter++;
         writer.write("</whileStatement>\n");
     }
 
