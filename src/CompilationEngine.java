@@ -29,6 +29,8 @@ public class CompilationEngine {
     private SymbolTable symbolTable;
     private String className  = null;
     private String functionName  = null;
+    private int whileCounter = 0;
+    private int ifCounter = 0;    
 
     public CompilationEngine(JackTokenizer tokenizer, Writer writer) {
         this.tokenizer = tokenizer;
@@ -68,6 +70,8 @@ public class CompilationEngine {
 
     private void compileSubroutine(Keyword keyword) throws IOException {
         symbolTable.startSubroutine();
+        ifCounter = 0;
+        whileCounter = 0;
 
         writer.write("<subroutineDec>\n");
         writer.write(TokenType.KEYWORD.wrap(keyword)+"\n");
