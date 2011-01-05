@@ -39,7 +39,7 @@ public class VMWriter {
     }
 
     public void write(String text) throws IOException {
-        writer.write(text);
+//        writer.write(text);
     }
 
     public void writePush(String segment, int i) throws IOException {

@@ -43,7 +43,7 @@ public class SymbolTable {
             globalMap.put(name, variable);
         }
         else {
-            globalMap.put(name, variable);
+            localMap.put(name, variable);
         }
     }
 

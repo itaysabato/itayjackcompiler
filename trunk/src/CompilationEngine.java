@@ -1,11 +1,34 @@
+import com.sun.org.apache.xpath.internal.operations.Variable;
+
 import java.io.IOException;
 import java.io.Writer;
+import java.util.HashMap;
+import java.util.Map;
 
 public class CompilationEngine {
+
+    private static Map<String, String> opMap;
+
+    static {
+        opMap = new HashMap<String, String>();
+        opMap.put("+",VMWriter.ADD);
+        opMap.put("-",VMWriter.SUB);
+        opMap.put("*","call Math.multiply 2");
+        opMap.put("/","call Math.divide 2");
+        opMap.put("&amp;",VMWriter.AND);
+        opMap.put("|",VMWriter.OR);
+        opMap.put("&lt;",VMWriter.LT);
+        opMap.put("&gt;",VMWriter.GT);
+        opMap.put("=",VMWriter.EQ);
+        opMap.put("-",VMWriter.NEG);
+        opMap.put("~",VMWriter.NOT);
+    }
 
     private JackTokenizer tokenizer;
     private VMWriter writer;
     private SymbolTable symbolTable;
+    private String className  = null;
+    private String functionName  = null;
 
     public CompilationEngine(JackTokenizer tokenizer, Writer writer) {
         this.tokenizer = tokenizer;
@@ -20,7 +43,11 @@ public class CompilationEngine {
             TokenType type = tokenizer.tokenType();
 
             if(!type.equals(TokenType.KEYWORD)){
-                writer.write(type.wrap(tokenizer.token())+"\n");
+                String token = tokenizer.token();
+                if(type.equals(TokenType.IDENTIFIER)){
+                    className =  token;
+                }
+                writer.write(type.wrap(token)+"\n");
             }
             else {
                 Keyword keyword = tokenizer.keyword();
@@ -48,6 +75,10 @@ public class CompilationEngine {
         while(tokenizer.advance()){
             TokenType type = tokenizer.tokenType();
             if(!type.equals(TokenType.SYMBOL)){
+                String token = tokenizer.token();
+                if(type.equals(TokenType.IDENTIFIER)){
+                    functionName =  token;
+                }
                 writer.write(type.wrap(tokenizer.token())+"\n");
             }
             else {
@@ -78,11 +109,13 @@ public class CompilationEngine {
                     compileVarDec();
                 }
                 else {
+                    writer.writeFunction(className+"."+functionName, symbolTable.varCount(VarKind.VAR));
                     compileStatements(keyword);
                     break;
                 }
             }
             else {
+                writer.writeFunction(className+"."+functionName, symbolTable.varCount(VarKind.VAR));
                 compileStatements(null);
                 break;
             }
@@ -195,12 +228,14 @@ public class CompilationEngine {
     private void compileLet() throws IOException {
         writer.write("<letStatement>\n");
         writer.write(TokenType.KEYWORD.wrap(Keyword.LET)+"\n");
+        SymbolTable.Variable identifier = null;
 
         while(tokenizer.advance()){
             TokenType type = tokenizer.tokenType();
             String token = tokenizer.token();
 
             if(type.equals(TokenType.IDENTIFIER)){
+                identifier = symbolTable.findVariable(token);
                 writer.write(type.wrap("let usage: "+symbolTable.findVariable(token))+"\n");
             }
             else {
@@ -210,6 +245,7 @@ public class CompilationEngine {
                     String symbol = compileExpression(null, null);
                     writer.write(TokenType.SYMBOL.wrap(symbol)+"\n");
                     if(symbol.equals(";")){
+                        writer.writePop(identifier.kind.segment,identifier.index);
                         break;
                     }
                 }
@@ -254,6 +290,8 @@ public class CompilationEngine {
     }
 
     private void compileDo() throws IOException {
+        String functionCallName = null;
+        int numArguments = 0;
         writer.write("<doStatement>\n");
         writer.write(TokenType.KEYWORD.wrap(Keyword.DO)+"\n");
 
@@ -267,6 +305,12 @@ public class CompilationEngine {
                     writer.write(TokenType.IDENTIFIER.wrap("do object method call usage: "+variable)+"\n");
                 }
                 else {
+                    if(functionCallName == null){
+                        functionCallName = token;
+                    }
+                    else {
+                        functionCallName = functionCallName+"."+token;
+                    }
                     writer.write(type.wrap(token)+"\n");
                 }
             }
@@ -275,7 +319,7 @@ public class CompilationEngine {
 
                 if(type.equals(TokenType.SYMBOL)){
                     if(token.equals("(")){
-                        compileExpressionList();
+                        numArguments = compileExpressionList();
                         writer.write(TokenType.SYMBOL.wrap(")")+"\n");
                     }
                     else if(token.equals(";")){
@@ -284,10 +328,13 @@ public class CompilationEngine {
                 }
             }
         }
+        writer.writeCall(functionCallName, numArguments);
+        writer.writePop(VMWriter.TEMP,0);
         writer.write("</doStatement>\n");
     }
 
-    private void compileExpressionList() throws IOException {
+    private int compileExpressionList() throws IOException {
+        int numArguments = 0;
         writer.write("<expressionList>\n");
 
         if(tokenizer.advance()){
@@ -296,6 +343,7 @@ public class CompilationEngine {
 
             if(!token.equals(")") ){
                 String symbol = compileExpression(type, token);
+                numArguments++;
                 while(symbol.equals(",")){
                     writer.write(TokenType.SYMBOL.wrap(symbol)+"\n");
                     symbol = compileExpression(null, null);
@@ -303,6 +351,7 @@ public class CompilationEngine {
             }
         }
         writer.write("</expressionList>\n");
+        return numArguments;
     }
 
     private String compileIf() throws IOException {
@@ -382,8 +431,12 @@ public class CompilationEngine {
             if(!type.equals(TokenType.SYMBOL) || !token.equals(";")){
                 compileExpression(type, token);
             }
+            else {
+                writer.writePush(VMWriter.CONST, 0);
+            }
         }
         writer.write(TokenType.SYMBOL.wrap(";")+"\n");
+        writer.writeReturn();
         writer.write("</returnStatement>\n");
     }
 
@@ -397,15 +450,21 @@ public class CompilationEngine {
             token = tokenizer.token();
         }
         opTurn = false;
+        String op = null;
 
         while(true) {
             if(opTurn && !isOp(token)) break;
             else if(opTurn) {
                 writer.write(TokenType.SYMBOL.wrap(token)+"\n");
+                op = opMap.get(token);
                 opTurn = false;
             }
             else {
                 token = compileTerm(type,token);
+                if(op!=null){
+                    writer.writeArithmetic(op);
+                    op = null;
+                }
                 opTurn = true;
                 if(token!=null)  continue;
             }
@@ -476,6 +535,10 @@ public class CompilationEngine {
             }
             else {
                 writer.write(type.wrap(token)+"\n");
+
+                if(type.equals(TokenType.INT_CONST)){
+                    writer.writePush(VMWriter.CONST,Integer.parseInt(token));
+                }
 
                 if(type.equals(TokenType.SYMBOL)){
                     if(token.equals("(")){
