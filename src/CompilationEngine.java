@@ -312,15 +312,19 @@ public class CompilationEngine {
         int numArguments = 0;
         writer.write("<doStatement>\n");
         writer.write(TokenType.KEYWORD.wrap(Keyword.DO)+"\n");
+        SymbolTable.Variable variable;
 
         while(tokenizer.advance()){
             TokenType type = tokenizer.tokenType();
             String token = tokenizer.token();
 
             if(type.equals(TokenType.IDENTIFIER)){
-                SymbolTable.Variable variable = symbolTable.findVariable(token);
+                variable = symbolTable.findVariable(token);
                 if(variable != null){
                     writer.write(TokenType.IDENTIFIER.wrap("do object method call usage: "+variable)+"\n");
+                    functionCallName = variable.type;
+                    writer.writePush(variable.kind.segment,variable.index);
+                    numArguments++;
                 }
                 else {
                     if(functionCallName == null){
@@ -337,7 +341,7 @@ public class CompilationEngine {
 
                 if(type.equals(TokenType.SYMBOL)){
                     if(token.equals("(")){
-                        numArguments = compileExpressionList();
+                        numArguments += compileExpressionList();
                         writer.write(TokenType.SYMBOL.wrap(")")+"\n");
                     }
                     else if(token.equals(";")){
@@ -515,6 +519,7 @@ public class CompilationEngine {
 
     private String compileTerm(TokenType type, String token) throws IOException {
         String functionCallName = null;
+        int numArguments = 0;
         writer.write("<term>\n");
         do {
             if(type.equals(TokenType.IDENTIFIER)){
@@ -534,7 +539,7 @@ public class CompilationEngine {
                         else if(token.equals("(")){
                             writer.write(TokenType.IDENTIFIER.wrap(identifier)+"\n");
                             writer.write(type.wrap(token)+"\n");
-                            int numArguments = compileExpressionList();
+                            numArguments += compileExpressionList();
                             writer.write(TokenType.SYMBOL.wrap(")")+"\n");
 
                             if(functionCallName != null){
@@ -549,6 +554,9 @@ public class CompilationEngine {
                             SymbolTable.Variable variable = symbolTable.findVariable(identifier);
                             if(variable != null){
                                 writer.write(TokenType.IDENTIFIER.wrap("term object method call usage: "+variable)+"\n");
+                                functionCallName = variable.type;
+                                writer.writePush(variable.kind.segment,variable.index);
+                                numArguments++;
                             }
                             else {
                                 functionCallName = identifier;
