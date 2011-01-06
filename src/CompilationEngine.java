@@ -137,7 +137,11 @@ public class CompilationEngine {
             writer.writePop(VMWriter.POINT,0);
         }
         else if(functionType.equals(Keyword.CONSTRUCTOR)){
-            writer.writePush(VMWriter.CONST,symbolTable.varCount(VarKind.FIELD));
+            int varCount = symbolTable.varCount(VarKind.FIELD);
+            if(varCount == 0){
+                varCount = 1;
+            }
+            writer.writePush(VMWriter.CONST,varCount);
             writer.writeCall("Memory.alloc", 1);
             writer.writePop(VMWriter.POINT,0);
         }
