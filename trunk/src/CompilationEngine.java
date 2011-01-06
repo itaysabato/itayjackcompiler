@@ -246,24 +246,37 @@ public class CompilationEngine {
     private void compileLet() throws IOException {
         writer.write("<letStatement>\n");
         writer.write(TokenType.KEYWORD.wrap(Keyword.LET)+"\n");
-        SymbolTable.Variable identifier = null;
+        SymbolTable.Variable variable = null;
+        String symbol = "";
 
         while(tokenizer.advance()){
             TokenType type = tokenizer.tokenType();
             String token = tokenizer.token();
 
             if(type.equals(TokenType.IDENTIFIER)){
-                identifier = symbolTable.findVariable(token);
+                variable = symbolTable.findVariable(token);
                 writer.write(type.wrap("let usage: "+symbolTable.findVariable(token))+"\n");
             }
             else {
                 writer.write(type.wrap(token)+"\n");
-
                 if(type.equals(TokenType.SYMBOL)){
-                    String symbol = compileExpression(null, null);
+                    boolean arr = false;
+                    if(arr = symbol.equals("]") && token.equals("=") && variable != null && variable.type.equals("Array")){
+                        writer.writePush(variable.kind.segment,variable.index);
+                        writer.writeArithmetic(VMWriter.ADD);
+                    }
+                    symbol = compileExpression(null, null);
                     writer.write(TokenType.SYMBOL.wrap(symbol)+"\n");
                     if(symbol.equals(";")){
-                        writer.writePop(identifier.kind.segment,identifier.index);
+                        if(arr){
+                            writer.writePop(VMWriter.TEMP,0);
+                            writer.writePop(VMWriter.POINT,1);
+                            writer.writePush(VMWriter.TEMP,0);
+                            writer.writePop(VMWriter.THAT,0);
+                        }
+                        else{
+                            writer.writePop( variable.kind.segment, variable.index);
+                        }
                         break;
                     }
                 }
@@ -540,10 +553,15 @@ public class CompilationEngine {
                     token = tokenizer.token();
                     if(type.equals(TokenType.SYMBOL)){
                         if(token.equals("[")){
-                            writer.write(TokenType.IDENTIFIER.wrap("term array usage: "+symbolTable.findVariable(identifier))+"\n");
+                            SymbolTable.Variable variable = symbolTable.findVariable(identifier);
+                            writer.write(TokenType.IDENTIFIER.wrap("term array usage: "+variable)+"\n");
                             writer.write(type.wrap(token)+"\n");
                             token = compileExpression(null,null);
                             writer.write(TokenType.SYMBOL.wrap(token)+"\n");
+                            writer.writePush(variable.kind.segment,variable.index);
+                            writer.writeArithmetic(VMWriter.ADD);
+                            writer.writePop(VMWriter.POINT,1);
+                            writer.writePush(VMWriter.THAT,0);
                             token = null;
                             break;
                         }
@@ -611,6 +629,14 @@ public class CompilationEngine {
                 }
                 else if(type.equals(TokenType.INT_CONST)){
                     writer.writePush(VMWriter.CONST,Integer.parseInt(token));
+                }
+                else if(type.equals(TokenType.STRING_CONST)){
+                    writer.writePush(VMWriter.CONST,token.length());
+                    writer.writeCall("String.new",1);
+                    for(int i = 0; i < token.length(); i++){
+                        writer.writePush(VMWriter.CONST,token.charAt(i));
+                        writer.writeCall("String.appendChar",2);
+                    }
                 }
                 if(type.equals(TokenType.SYMBOL)){
                     if(token.equals("(")){

@@ -1,6 +1,6 @@
 ###############################################################################
 #
-# Makefile for Java project 10
+# Makefile for Java project 11
 #
 # Students:
 # Itay Sabato, ID 036910008, itay.sabato@cs.huji.ac.il
@@ -12,11 +12,11 @@ JAVAC=javac
 JAVACFLAGS=
 
 SRCS=*.java
-EXEC=JackAnalyzer
+EXEC=JackCompiler
 
 TAR=tar
 TARFLAGS=cvf
-TARNAME=project10.tar
+TARNAME=project11.tar
 TARSRCS= README Makefile $(EXEC) *.java
 
 all: compile
